@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import type { NextRequest } from 'next/server';
 
 // Spoof a real browser so stream servers don't block us
@@ -81,12 +83,13 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Segment / binary content: stream straight through ──
+    // Segments are write-once — caching for 10s at the edge reduces duplicate upstream fetches
     return new Response(upstream.body, {
       status: upstream.status,
       headers: {
         'Content-Type': contentType || 'video/MP2T',
         'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'no-cache, no-store',
+        'Cache-Control': 'public, max-age=10, s-maxage=10',
       },
     });
   } catch (err) {
