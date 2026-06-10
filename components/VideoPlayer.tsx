@@ -104,7 +104,7 @@ function ChannelCarousel({ channels, onSelect }: { channels: Channel[]; onSelect
           </div>
           <button
             onClick={() => onSelect(featured)}
-            className="relative z-10 flex items-center gap-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-sm font-semibold px-6 py-2.5 rounded-full transition-all mt-1 shadow-lg shadow-blue-900/40"
+            className="relative z-10 flex items-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-sm font-semibold px-6 py-2.5 rounded-full transition-all mt-1 shadow-lg shadow-blue-900/40"
           >
             <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />
             Watch Live
@@ -114,7 +114,7 @@ function ChannelCarousel({ channels, onSelect }: { channels: Channel[]; onSelect
         {/* Prev arrow — z-20 so it's always above the content layer */}
         <button
           onClick={() => { advance(-1); resetTimer(); }}
-          className="absolute left-3 top-1/2 -translate-y-1/2 z-20 bg-black/60 hover:bg-black/90 text-white rounded-full w-9 h-9 flex items-center justify-center transition-all backdrop-blur-sm shadow-md"
+          className="absolute left-3 top-1/2 -translate-y-1/2 z-20 cursor-pointer bg-black/60 hover:bg-black/90 text-white rounded-full w-9 h-9 flex items-center justify-center transition-all backdrop-blur-sm shadow-md"
           aria-label="Previous channel"
         >
           <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -123,7 +123,7 @@ function ChannelCarousel({ channels, onSelect }: { channels: Channel[]; onSelect
         </button>
         <button
           onClick={() => { advance(1); resetTimer(); }}
-          className="absolute right-3 top-1/2 -translate-y-1/2 z-20 bg-black/60 hover:bg-black/90 text-white rounded-full w-9 h-9 flex items-center justify-center transition-all backdrop-blur-sm shadow-md"
+          className="absolute right-3 top-1/2 -translate-y-1/2 z-20 cursor-pointer bg-black/60 hover:bg-black/90 text-white rounded-full w-9 h-9 flex items-center justify-center transition-all backdrop-blur-sm shadow-md"
           aria-label="Next channel"
         >
           <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -138,7 +138,7 @@ function ChannelCarousel({ channels, onSelect }: { channels: Channel[]; onSelect
               <button
                 key={i}
                 onClick={() => { setSlideDir(i > idx ? 'right' : 'left'); setAnimKey(k => k + 1); setIdx(i); resetTimer(); }}
-                className={`rounded-full transition-all ${
+                className={`cursor-pointer rounded-full transition-all ${
                   i === idx % Math.min(total, 10)
                     ? 'w-5 h-1.5 bg-blue-500'
                     : 'w-1.5 h-1.5 bg-gray-600 hover:bg-gray-400'
@@ -156,7 +156,7 @@ function ChannelCarousel({ channels, onSelect }: { channels: Channel[]; onSelect
             <button
               key={ch.id}
               onClick={() => onSelect(ch)}
-              className="flex flex-col items-center gap-1.5 bg-gray-900/60 hover:bg-gray-800/80 border border-gray-800 hover:border-gray-600 rounded-xl p-2 transition-all group/thumb"
+              className="flex flex-col items-center gap-1.5 cursor-pointer bg-gray-900/60 hover:bg-gray-800/80 border border-gray-800 hover:border-gray-600 rounded-xl p-2 transition-all group/thumb"
             >
               <CarouselLogo logo={ch.logo} name={ch.name} />
               <span className="text-[10px] sm:text-xs text-gray-400 group-hover/thumb:text-white truncate w-full text-center leading-tight">
@@ -305,7 +305,7 @@ export default function VideoPlayer({ channel, channelViewerCount, channels = []
             </p>
             <button
               onClick={() => setRetryCount(c => c + 1)}
-              className="mt-2 px-5 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-sm font-semibold rounded-lg transition-all"
+              className="mt-2 px-5 py-2 cursor-pointer bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-sm font-semibold rounded-lg transition-all"
             >
               ↺ Retry
             </button>
@@ -322,7 +322,7 @@ export default function VideoPlayer({ channel, channelViewerCount, channels = []
           )}
           <button
             onClick={toggleFullscreen}
-            className="bg-black/75 backdrop-blur-sm hover:bg-black text-white p-2 rounded-lg transition-colors"
+            className="bg-black/75 backdrop-blur-sm cursor-pointer hover:bg-black text-white p-2 rounded-lg transition-colors"
             title="Fullscreen (F)"
           >
             <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">

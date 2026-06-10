@@ -135,7 +135,7 @@ export default function HomePage() {
         <button
           onClick={() => setSidebarOpen(v => !v)}
           title="Toggle sidebar"
-          className="hidden sm:flex text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors flex-shrink-0"
+          className="hidden sm:flex cursor-pointer text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors flex-shrink-0"
         >
           <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
@@ -180,7 +180,7 @@ export default function HomePage() {
                   className="w-full bg-[#252525] rounded-lg pl-8 pr-8 py-2 text-sm text-white placeholder-gray-600 border border-[#333] focus:border-blue-500 focus:outline-none"
                 />
                 {search && (
-                  <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">✕</button>
+                  <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 hover:text-white">✕</button>
                 )}
               </div>
             </div>
@@ -196,14 +196,14 @@ export default function HomePage() {
                 <div className="flex flex-col items-center justify-center h-40 gap-2 text-gray-500">
                   <span className="text-3xl">😕</span>
                   <span className="text-sm">No channels found</span>
-                  <button onClick={() => setSearch('')} className="text-xs text-blue-400 hover:text-blue-300 mt-1">Clear search</button>
+                  <button onClick={() => setSearch('')} className="text-xs cursor-pointer text-blue-400 hover:text-blue-300 mt-1">Clear search</button>
                 </div>
               ) : (
                 filtered.map(ch => (
                   <button
                     key={ch.id}
                     onClick={() => handleSelectChannel(ch)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-3 sm:py-2 transition-colors text-left group ${
+                    className={`w-full flex items-center gap-2.5 px-3 py-3 sm:py-2 cursor-pointer transition-colors text-left group ${
                       selected?.id === ch.id
                         ? 'bg-blue-900/30 border-r-2 border-blue-500'
                         : 'hover:bg-[#222] border-r-2 border-transparent'
@@ -238,7 +238,7 @@ export default function HomePage() {
             {selected && (
               <button
                 onClick={() => setMobileChannelsOpen(v => !v)}
-                className="sm:hidden mt-3 w-full py-2.5 rounded-lg bg-[#1e1e1e] hover:bg-[#252525] text-sm text-gray-300 border border-[#2a2a2a] transition-colors font-medium"
+                className="sm:hidden mt-3 w-full py-2.5 cursor-pointer rounded-lg bg-[#1e1e1e] hover:bg-[#252525] text-sm text-gray-300 border border-[#2a2a2a] transition-colors font-medium"
               >
                 More Channels
               </button>
