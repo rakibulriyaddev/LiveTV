@@ -82,9 +82,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ── Segment / binary content: stream straight through ──
-    // Segments are write-once — caching for 10s at the edge reduces duplicate upstream fetches
-    return new Response(upstream.body, {
+    // ── Segment / binary content ──
+    // Buffer the full response before returning so Vercel's CDN can store and
+    // cache it. Streaming (upstream.body passthrough) prevents CDN caching
+    // because the edge never sees a complete body to write to the cache store.
+    const buffer = await upstream.arrayBuffer();
+    return new Response(buffer, {
       status: upstream.status,
       headers: {
         'Content-Type': contentType || 'video/MP2T',
