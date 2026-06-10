@@ -94,7 +94,6 @@ export default function HomePage() {
         const parsed = parseM3U(text);
         setChannels(parsed);
         setLoadingPlaylist(false);
-        if (parsed.length > 0) setSelected(parsed[0]);
       })
       .catch(() => setLoadingPlaylist(false));
   }, []);
