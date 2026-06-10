@@ -150,20 +150,11 @@ export default function HomePage() {
               {channels.length} channels
             </span>
           )}
-          {selected ? (
-            channelViewers != null && (
-              <span className="text-xs text-gray-400 bg-[#252525] px-2 py-0.5 rounded-full flex items-center gap-1">
-                <span>👥</span>
-                <span>{channelViewers} on this channel</span>
-              </span>
-            )
-          ) : (
-            totalViewers != null && (
-              <span className="text-xs text-gray-500 bg-[#252525] px-2 py-0.5 rounded-full flex items-center gap-1">
-                <span>👥</span>
-                <span>{totalViewers} watching</span>
-              </span>
-            )
+          {!selected && totalViewers != null && (
+            <span className="text-xs text-gray-500 bg-[#252525] px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span>👥</span>
+              <span>{totalViewers} active</span>
+            </span>
           )}
         </div>
 
