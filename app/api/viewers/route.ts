@@ -1,71 +1,118 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { redis } from '@/lib/redis';
 
-interface SessionData {
-  ts: number;
-  channelId: string | null;
-}
+const SESSION_TTL = 60;  // seconds
+const CHANNEL_TTL = 90;  // wider than session TTL to avoid negative counts on race
 
-// sessionId → { ts, channelId }
-const sessions = new Map<string, SessionData>();
-// channelId → total tune-in events (increments only when a session switches to a new channel)
-const viewCounts = new Map<string, number>();
-const TTL = 60_000;
-
-function prune() {
-  const cutoff = Date.now() - TTL;
-  for (const [id, data] of sessions) {
-    if (data.ts < cutoff) sessions.delete(id);
+// @upstash/redis returns ZRANGE WITHSCORES as a flat [member, score, ...] array
+function parseZrangeWithScores(raw: unknown): Array<{ id: string; count: number }> {
+  if (!Array.isArray(raw)) return [];
+  const out: Array<{ id: string; count: number }> = [];
+  for (let i = 0; i < raw.length; i += 2) {
+    const id = String(raw[i]);
+    const count = Number(raw[i + 1]);
+    if (id) out.push({ id, count });
   }
-}
-
-function channelCount(channelId: string): number {
-  let n = 0;
-  for (const data of sessions.values()) {
-    if (data.channelId === channelId) n++;
-  }
-  return n;
-}
-
-function topChannels(n: number): Array<{ id: string; count: number }> {
-  return [...viewCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, n)
-    .map(([id, count]) => ({ id, count }));
+  return out;
 }
 
 export async function POST(req: Request) {
   let channelId: string | null = null;
+
   try {
     const body = await req.json() as { sessionId?: unknown; channelId?: unknown };
-    if (typeof body.sessionId === 'string' && body.sessionId) {
-      channelId = typeof body.channelId === 'string' && body.channelId ? body.channelId : null;
-      prune();
-      const prev = sessions.get(body.sessionId);
-      // count each distinct tune-in (session switches to a new channel)
-      if (channelId !== null && prev?.channelId !== channelId) {
-        viewCounts.set(channelId, (viewCounts.get(channelId) ?? 0) + 1);
-      }
-      sessions.set(body.sessionId, { ts: Date.now(), channelId });
+    const sid = typeof body.sessionId === 'string' && body.sessionId ? body.sessionId : null;
+    if (!sid) throw new Error('no sessionId');
+
+    channelId = typeof body.channelId === 'string' && body.channelId ? body.channelId : null;
+
+    const sessionKey = `session:${sid}`;
+    const sessionChanKey = `session:channel:${sid}`;
+
+    // One GET to know the previous channel before building the write pipeline
+    const prevChannel = await redis.get<string>(sessionChanKey);
+    const isNewSession = prevChannel === null;
+    const channelChanged = !isNewSession && prevChannel !== (channelId ?? '');
+
+    const p = redis.pipeline();
+
+    p.hset(sessionKey, { channelId: channelId ?? '', ts: Date.now() });
+    p.expire(sessionKey, SESSION_TTL);
+    p.set(sessionChanKey, channelId ?? '', { ex: SESSION_TTL });
+
+    if (isNewSession) {
+      p.incr('viewers:total');
     }
+
+    if (channelChanged || isNewSession) {
+      if (!isNewSession && prevChannel) {
+        p.decr(`channel:viewers:${prevChannel}`);
+      }
+      if (channelId) {
+        p.zincrby('tunein:counts', 1, channelId);
+        p.incr(`channel:viewers:${channelId}`);
+        p.expire(`channel:viewers:${channelId}`, CHANNEL_TTL);
+      }
+    } else if (channelId) {
+      p.expire(`channel:viewers:${channelId}`, CHANNEL_TTL);
+    }
+
+    await p.exec();
   } catch {
-    // malformed body — still return counts
+    // malformed body or Redis error — fall through to return current counts
   }
-  prune();
+
+  const readPipe = redis.pipeline();
+  readPipe.get('viewers:total');
+  if (channelId) readPipe.get(`channel:viewers:${channelId}`);
+  readPipe.zrange('tunein:counts', 0, 4, { rev: true, withScores: true });
+
+  const results = await readPipe.exec();
+
+  const total = Math.max(0, parseInt((results[0] as string | null) ?? '0', 10) || 0);
+  let channelCount: number | null = null;
+  let topRaw: unknown;
+
+  if (channelId) {
+    channelCount = Math.max(0, parseInt((results[1] as string | null) ?? '0', 10) || 0);
+    topRaw = results[2];
+  } else {
+    topRaw = results[1];
+  }
+
   return NextResponse.json({
-    total: sessions.size,
-    channelCount: channelId !== null ? channelCount(channelId) : null,
-    top: topChannels(5),
+    total,
+    channelCount,
+    top: parseZrangeWithScores(topRaw),
   });
 }
 
 export async function GET(req: NextRequest) {
   const cid = req.nextUrl.searchParams.get('channelId');
-  const n = parseInt(req.nextUrl.searchParams.get('top') ?? '5', 10);
-  prune();
+  const n = Math.min(parseInt(req.nextUrl.searchParams.get('top') ?? '5', 10), 20);
+
+  const readPipe = redis.pipeline();
+  readPipe.get('viewers:total');
+  if (cid) readPipe.get(`channel:viewers:${cid}`);
+  readPipe.zrange('tunein:counts', 0, n - 1, { rev: true, withScores: true });
+
+  const results = await readPipe.exec();
+
+  const total = Math.max(0, parseInt((results[0] as string | null) ?? '0', 10) || 0);
+  let channelCount: number | null = null;
+  let topRaw: unknown;
+
+  if (cid) {
+    channelCount = Math.max(0, parseInt((results[1] as string | null) ?? '0', 10) || 0);
+    topRaw = results[2];
+  } else {
+    topRaw = results[1];
+  }
+
   return NextResponse.json({
-    total: sessions.size,
-    channelCount: cid ? channelCount(cid) : null,
-    top: topChannels(n),
+    total,
+    channelCount,
+    top: parseZrangeWithScores(topRaw),
   });
 }
