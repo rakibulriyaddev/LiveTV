@@ -5,7 +5,8 @@ import type { Channel } from '@/lib/parseM3U';
 
 interface Props {
   channel: Channel | null;
-  viewerCount?: number | null;
+  /** viewers on this specific channel */
+  channelViewerCount?: number | null;
   channels?: Channel[];
   onSelectChannel?: (ch: Channel) => void;
 }
@@ -38,32 +39,40 @@ function CarouselLogo({ logo, name }: { logo: string; name: string }) {
 
 function ChannelCarousel({ channels, onSelect }: { channels: Channel[]; onSelect: (ch: Channel) => void }) {
   const [idx, setIdx] = useState(0);
+  const [animKey, setAnimKey] = useState(0);
+  const [slideDir, setSlideDir] = useState<'right' | 'left'>('right');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const featured = channels.length > 0 ? channels[idx % channels.length] : null;
+  const total = channels.length;
+  const featured = total > 0 ? channels[idx % total] : null;
 
   const advance = (dir: 1 | -1) => {
-    setIdx(i => (i + dir + channels.length) % channels.length);
+    setSlideDir(dir === 1 ? 'right' : 'left');
+    setAnimKey(k => k + 1);
+    setIdx(i => (i + dir + total) % total);
   };
 
-  // Restart auto-advance on user interaction
   const resetTimer = () => {
     if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => setIdx(i => (i + 1) % channels.length), 4000);
+    timerRef.current = setInterval(() => {
+      setSlideDir('right');
+      setAnimKey(k => k + 1);
+      setIdx(i => (i + 1) % total);
+    }, 4000);
   };
 
   useEffect(() => {
-    if (channels.length === 0) return;
-    timerRef.current = setInterval(() => setIdx(i => (i + 1) % channels.length), 4000);
+    if (total === 0) return;
+    timerRef.current = setInterval(() => {
+      setSlideDir('right');
+      setAnimKey(k => k + 1);
+      setIdx(i => (i + 1) % total);
+    }, 4000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [channels.length]);
+  }, [total]);
 
-  // Thumbnail strip — pick 5 evenly spaced channels excluding featured
-  const stripCount = 5;
-  const strip = channels.length > 1
-    ? Array.from({ length: Math.min(stripCount, channels.length - 1) }, (_, i) =>
-        channels[(idx + 1 + i) % channels.length]
-      )
+  const strip = total > 1
+    ? Array.from({ length: Math.min(5, total - 1) }, (_, i) => channels[(idx + 1 + i) % total])
     : [];
 
   if (!featured) {
@@ -78,50 +87,59 @@ function ChannelCarousel({ channels, onSelect }: { channels: Channel[]; onSelect
   return (
     <div className="flex flex-col gap-3">
       {/* Featured card */}
-      <div className="relative bg-gray-950 rounded-2xl border border-gray-800 overflow-hidden min-h-[240px] sm:min-h-[340px] flex items-center justify-center group">
+      <div className="relative bg-gray-950 rounded-2xl border border-gray-800 overflow-hidden min-h-[240px] sm:min-h-[340px]">
 
-        {/* Background glow */}
+        {/* Background glow — decorative only */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-950/30 via-transparent to-purple-950/20 pointer-events-none" />
 
-        {/* Prev / Next */}
-        <button
-          onClick={() => { advance(-1); resetTimer(); }}
-          className="absolute left-3 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/80 text-white rounded-full w-9 h-9 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm"
-        >
-          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-        <button
-          onClick={() => { advance(1); resetTimer(); }}
-          className="absolute right-3 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/80 text-white rounded-full w-9 h-9 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm"
-        >
-          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-        </button>
-
-        {/* Main content */}
-        <button
-          onClick={() => onSelect(featured)}
-          className="flex flex-col items-center gap-4 px-6 py-10 z-10 w-full h-full hover:bg-white/[0.03] transition-colors"
+        {/* Animated content — key changes on every slide to restart the animation */}
+        <div
+          key={animKey}
+          className={`flex flex-col items-center justify-center gap-4 px-6 py-10 min-h-[240px] sm:min-h-[340px] ${slideDir === 'right' ? 'slide-from-right' : 'slide-from-left'}`}
         >
           <CarouselLogo logo={featured.logo} name={featured.name} />
           <div className="text-center">
             <p className="text-white font-bold text-xl sm:text-2xl leading-tight">{featured.name}</p>
             <p className="text-gray-500 text-sm mt-1">{featured.group}</p>
           </div>
-          <div className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-5 py-2 rounded-full transition-colors mt-1">
+          <button
+            onClick={() => onSelect(featured)}
+            className="relative z-10 flex items-center gap-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-sm font-semibold px-6 py-2.5 rounded-full transition-all mt-1 shadow-lg shadow-blue-900/40"
+          >
             <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />
             Watch Live
-          </div>
+          </button>
+        </div>
+
+        {/* Prev arrow — z-20 so it's always above the content layer */}
+        <button
+          onClick={() => { advance(-1); resetTimer(); }}
+          className="absolute left-3 top-1/2 -translate-y-1/2 z-20 bg-black/60 hover:bg-black/90 text-white rounded-full w-9 h-9 flex items-center justify-center transition-all backdrop-blur-sm shadow-md"
+          aria-label="Previous channel"
+        >
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <button
+          onClick={() => { advance(1); resetTimer(); }}
+          className="absolute right-3 top-1/2 -translate-y-1/2 z-20 bg-black/60 hover:bg-black/90 text-white rounded-full w-9 h-9 flex items-center justify-center transition-all backdrop-blur-sm shadow-md"
+          aria-label="Next channel"
+        >
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
         </button>
 
-        {/* Dot indicators */}
-        {channels.length > 1 && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-            {Array.from({ length: Math.min(channels.length, 10) }).map((_, i) => (
+        {/* Dot indicators — z-20 */}
+        {total > 1 && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+            {Array.from({ length: Math.min(total, 10) }).map((_, i) => (
               <button
                 key={i}
-                onClick={() => { setIdx(i); resetTimer(); }}
+                onClick={() => { setSlideDir(i > idx ? 'right' : 'left'); setAnimKey(k => k + 1); setIdx(i); resetTimer(); }}
                 className={`rounded-full transition-all ${
-                  i === idx % Math.min(channels.length, 10)
+                  i === idx % Math.min(total, 10)
                     ? 'w-5 h-1.5 bg-blue-500'
                     : 'w-1.5 h-1.5 bg-gray-600 hover:bg-gray-400'
                 }`}
@@ -137,7 +155,7 @@ function ChannelCarousel({ channels, onSelect }: { channels: Channel[]; onSelect
           {strip.map((ch) => (
             <button
               key={ch.id}
-              onClick={() => { onSelect(ch); }}
+              onClick={() => onSelect(ch)}
               className="flex flex-col items-center gap-1.5 bg-gray-900/60 hover:bg-gray-800/80 border border-gray-800 hover:border-gray-600 rounded-xl p-2 transition-all group/thumb"
             >
               <CarouselLogo logo={ch.logo} name={ch.name} />
@@ -157,7 +175,7 @@ function formatViewers(n: number): string {
   return `${n}`;
 }
 
-export default function VideoPlayer({ channel, viewerCount, channels = [], onSelectChannel }: Props) {
+export default function VideoPlayer({ channel, channelViewerCount, channels = [], onSelectChannel }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<InstanceType<typeof import('hls.js')['default']> | null>(null);
@@ -166,7 +184,7 @@ export default function VideoPlayer({ channel, viewerCount, channels = [], onSel
   const [quality, setQuality] = useState('');
   const [retryCount, setRetryCount] = useState(0);
 
-  const viewerLabel = viewerCount != null ? formatViewers(viewerCount) : null;
+  const viewerLabel = channelViewerCount != null ? formatViewers(channelViewerCount) : null;
 
   useEffect(() => { setLogoError(false); }, [channel]);
 

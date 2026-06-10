@@ -34,8 +34,20 @@ export default function HomePage() {
   const [search, setSearch] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileChannelsOpen, setMobileChannelsOpen] = useState(false);
-  const [viewerCount, setViewerCount] = useState<number | null>(null);
+  /** total users currently on the site */
+  const [totalViewers, setTotalViewers] = useState<number | null>(null);
+  /** viewers watching the currently selected channel */
+  const [channelViewers, setChannelViewers] = useState<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  // keep a ref so the heartbeat closure always reads the latest selected channel
+  const selectedRef = useRef<Channel | null>(null);
+  const beatRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    selectedRef.current = selected;
+    setChannelViewers(null); // reset immediately on channel switch
+    beatRef.current?.();    // fire an immediate heartbeat to get fresh counts
+  }, [selected]);
 
   useEffect(() => {
     fetch('/list.txt')
@@ -48,23 +60,29 @@ export default function HomePage() {
       .catch(() => setLoadingPlaylist(false));
   }, []);
 
-  // Register this browser as an active viewer; heartbeat every 30s
+  // Heartbeat: register session + current channel every 30s
   useEffect(() => {
     let sessionId = sessionStorage.getItem('livetv_sid');
     if (!sessionId) {
       sessionId = Math.random().toString(36).slice(2) + Date.now().toString(36);
       sessionStorage.setItem('livetv_sid', sessionId);
     }
+    const sid = sessionId;
     const beat = () => {
+      const channelId = selectedRef.current?.id ?? null;
       fetch('/api/viewers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId }),
+        body: JSON.stringify({ sessionId: sid, channelId }),
       })
         .then(r => r.json())
-        .then((d: { count: number }) => setViewerCount(d.count))
+        .then((d: { total: number; channelCount: number | null }) => {
+          setTotalViewers(d.total);
+          if (d.channelCount != null) setChannelViewers(d.channelCount);
+        })
         .catch(() => {});
     };
+    beatRef.current = beat;
     beat();
     const t = setInterval(beat, 30_000);
     return () => clearInterval(t);
@@ -121,11 +139,20 @@ export default function HomePage() {
               {channels.length} channels
             </span>
           )}
-          {viewerCount != null && (
-            <span className="text-xs text-gray-500 bg-[#252525] px-2 py-0.5 rounded-full flex items-center gap-1">
-              <span>👥</span>
-              <span>{viewerCount} watching</span>
-            </span>
+          {selected ? (
+            channelViewers != null && (
+              <span className="text-xs text-gray-400 bg-[#252525] px-2 py-0.5 rounded-full flex items-center gap-1">
+                <span>👥</span>
+                <span>{channelViewers} on this channel</span>
+              </span>
+            )
+          ) : (
+            totalViewers != null && (
+              <span className="text-xs text-gray-500 bg-[#252525] px-2 py-0.5 rounded-full flex items-center gap-1">
+                <span>👥</span>
+                <span>{totalViewers} watching</span>
+              </span>
+            )
           )}
         </div>
 
@@ -207,7 +234,7 @@ export default function HomePage() {
         {/* Main player area */}
         <main className="order-1 sm:order-2 flex-shrink-0 sm:flex-1 overflow-y-auto p-4 sm:p-6 bg-[#0d0d0d]">
           <div className="max-w-5xl mx-auto">
-            <VideoPlayer channel={selected} viewerCount={viewerCount} channels={channels} onSelectChannel={handleSelectChannel} />
+            <VideoPlayer channel={selected} channelViewerCount={channelViewers} channels={channels} onSelectChannel={handleSelectChannel} />
             {selected && (
               <button
                 onClick={() => setMobileChannelsOpen(v => !v)}
