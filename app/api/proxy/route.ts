@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
         headers: {
           'Content-Type': 'application/vnd.apple.mpegurl',
           'Access-Control-Allow-Origin': '*',
-          'Cache-Control': 'public, max-age=2, s-maxage=3',
+          'Cache-Control': 'no-cache, no-store',
         },
       });
     }
