@@ -207,7 +207,7 @@ export default function HomePage() {
         {/* Main player area */}
         <main className="order-1 sm:order-2 flex-shrink-0 sm:flex-1 overflow-y-auto p-4 sm:p-6 bg-[#0d0d0d]">
           <div className="max-w-5xl mx-auto">
-            <VideoPlayer channel={selected} viewerCount={viewerCount} />
+            <VideoPlayer channel={selected} viewerCount={viewerCount} channels={channels} onSelectChannel={handleSelectChannel} />
             {selected && (
               <button
                 onClick={() => setMobileChannelsOpen(v => !v)}

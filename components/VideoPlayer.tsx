@@ -6,10 +6,150 @@ import type { Channel } from '@/lib/parseM3U';
 interface Props {
   channel: Channel | null;
   viewerCount?: number | null;
+  channels?: Channel[];
+  onSelectChannel?: (ch: Channel) => void;
 }
 
 function proxyUrl(url: string) {
   return `/api/proxy?url=${encodeURIComponent(url)}`;
+}
+
+// ── Channel carousel (shown when no channel is selected) ─────────────────────
+
+function CarouselLogo({ logo, name }: { logo: string; name: string }) {
+  const [err, setErr] = useState(false);
+  if (!logo || err) {
+    return (
+      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gray-800 flex items-center justify-center text-2xl font-bold text-gray-400 flex-shrink-0">
+        {name.slice(0, 2).toUpperCase()}
+      </div>
+    );
+  }
+  return (
+    <img
+      src={logo}
+      alt={name}
+      loading="lazy"
+      onError={() => setErr(true)}
+      className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-contain bg-gray-800/60 p-2 flex-shrink-0"
+    />
+  );
+}
+
+function ChannelCarousel({ channels, onSelect }: { channels: Channel[]; onSelect: (ch: Channel) => void }) {
+  const [idx, setIdx] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const featured = channels.length > 0 ? channels[idx % channels.length] : null;
+
+  const advance = (dir: 1 | -1) => {
+    setIdx(i => (i + dir + channels.length) % channels.length);
+  };
+
+  // Restart auto-advance on user interaction
+  const resetTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => setIdx(i => (i + 1) % channels.length), 4000);
+  };
+
+  useEffect(() => {
+    if (channels.length === 0) return;
+    timerRef.current = setInterval(() => setIdx(i => (i + 1) % channels.length), 4000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [channels.length]);
+
+  // Thumbnail strip — pick 5 evenly spaced channels excluding featured
+  const stripCount = 5;
+  const strip = channels.length > 1
+    ? Array.from({ length: Math.min(stripCount, channels.length - 1) }, (_, i) =>
+        channels[(idx + 1 + i) % channels.length]
+      )
+    : [];
+
+  if (!featured) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[300px] sm:min-h-[400px] bg-gray-950 rounded-2xl border border-gray-800">
+        <div className="text-7xl mb-5 animate-bounce">📺</div>
+        <p className="text-gray-300 text-lg font-semibold">Loading channels…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Featured card */}
+      <div className="relative bg-gray-950 rounded-2xl border border-gray-800 overflow-hidden min-h-[240px] sm:min-h-[340px] flex items-center justify-center group">
+
+        {/* Background glow */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-950/30 via-transparent to-purple-950/20 pointer-events-none" />
+
+        {/* Prev / Next */}
+        <button
+          onClick={() => { advance(-1); resetTimer(); }}
+          className="absolute left-3 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/80 text-white rounded-full w-9 h-9 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm"
+        >
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <button
+          onClick={() => { advance(1); resetTimer(); }}
+          className="absolute right-3 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/80 text-white rounded-full w-9 h-9 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm"
+        >
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+
+        {/* Main content */}
+        <button
+          onClick={() => onSelect(featured)}
+          className="flex flex-col items-center gap-4 px-6 py-10 z-10 w-full h-full hover:bg-white/[0.03] transition-colors"
+        >
+          <CarouselLogo logo={featured.logo} name={featured.name} />
+          <div className="text-center">
+            <p className="text-white font-bold text-xl sm:text-2xl leading-tight">{featured.name}</p>
+            <p className="text-gray-500 text-sm mt-1">{featured.group}</p>
+          </div>
+          <div className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-5 py-2 rounded-full transition-colors mt-1">
+            <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />
+            Watch Live
+          </div>
+        </button>
+
+        {/* Dot indicators */}
+        {channels.length > 1 && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+            {Array.from({ length: Math.min(channels.length, 10) }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => { setIdx(i); resetTimer(); }}
+                className={`rounded-full transition-all ${
+                  i === idx % Math.min(channels.length, 10)
+                    ? 'w-5 h-1.5 bg-blue-500'
+                    : 'w-1.5 h-1.5 bg-gray-600 hover:bg-gray-400'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Thumbnail strip */}
+      {strip.length > 0 && (
+        <div className="grid grid-cols-5 gap-2">
+          {strip.map((ch) => (
+            <button
+              key={ch.id}
+              onClick={() => { onSelect(ch); }}
+              className="flex flex-col items-center gap-1.5 bg-gray-900/60 hover:bg-gray-800/80 border border-gray-800 hover:border-gray-600 rounded-xl p-2 transition-all group/thumb"
+            >
+              <CarouselLogo logo={ch.logo} name={ch.name} />
+              <span className="text-[10px] sm:text-xs text-gray-400 group-hover/thumb:text-white truncate w-full text-center leading-tight">
+                {ch.name}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function formatViewers(n: number): string {
@@ -17,7 +157,7 @@ function formatViewers(n: number): string {
   return `${n}`;
 }
 
-export default function VideoPlayer({ channel, viewerCount }: Props) {
+export default function VideoPlayer({ channel, viewerCount, channels = [], onSelectChannel }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<InstanceType<typeof import('hls.js')['default']> | null>(null);
@@ -125,14 +265,7 @@ export default function VideoPlayer({ channel, viewerCount }: Props) {
   };
 
   if (!channel) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[300px] sm:min-h-[400px] bg-gray-950 rounded-2xl border border-gray-800">
-        <div className="text-7xl mb-5 animate-bounce">📺</div>
-        <p className="text-gray-300 text-lg font-semibold">Select a channel to watch</p>
-        <p className="text-gray-600 text-sm mt-2 hidden sm:block">Browse channels in the sidebar</p>
-        <p className="text-gray-600 text-sm mt-2 sm:hidden">Select a channel below</p>
-      </div>
-    );
+    return <ChannelCarousel channels={channels} onSelect={onSelectChannel ?? (() => {})} />;
   }
 
   return (
