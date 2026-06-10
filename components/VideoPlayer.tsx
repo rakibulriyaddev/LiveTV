@@ -196,11 +196,12 @@ export default function VideoPlayer({ channel, channelViewerCount, channels = []
 
         if (Hls.isSupported()) {
           const hls = new Hls({
-            enableWorker: false,
-            lowLatencyMode: true,
-            capLevelToPlayerSize: false,  // never downgrade quality to match player element size
-            startLevel: -1,               // ABR start, then we override to highest
-            maxMaxBufferLength: 30,
+            enableWorker: true,                  // off main thread — accurate bandwidth measurement
+            lowLatencyMode: false,               // standard HLS streams, not LL-HLS — low latency mode shrinks buffer and hurts quality
+            capLevelToPlayerSize: false,         // never cap quality to player element size
+            startLevel: -1,                      // ABR picks start, then we lock to highest after manifest
+            maxMaxBufferLength: 60,              // larger buffer → smoother ABR decisions
+            abrEwmaDefaultEstimate: 5_000_000,  // assume 5 Mbps upfront so ABR starts at high quality immediately
           });
           hlsRef.current = hls;
           hls.loadSource(proxyUrl(channel.url));
@@ -209,8 +210,10 @@ export default function VideoPlayer({ channel, channelViewerCount, channels = []
           hls.once(Hls.Events.MANIFEST_PARSED, () => {
             if (cancelled) return;
             if (hls.levels.length > 0) {
-              hls.currentLevel = hls.levels.length - 1;
-              const top = hls.levels[hls.levels.length - 1];
+              const maxLevel = hls.levels.length - 1;
+              hls.currentLevel = maxLevel;
+              hls.nextAutoLevel = maxLevel;      // prevent ABR from drifting back down after error recovery
+              const top = hls.levels[maxLevel];
               if (top?.height) setQuality(`${top.height}p`);
             }
             setState('playing');
