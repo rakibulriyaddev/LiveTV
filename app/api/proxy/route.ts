@@ -1,4 +1,5 @@
 export const runtime = 'edge';
+export const preferredRegion = ['sin1', 'bom1']; // Singapore / Mumbai — closest to BD CDNs
 
 import type { NextRequest } from 'next/server';
 
